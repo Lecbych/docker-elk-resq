@@ -5,7 +5,24 @@ set -o pipefail
 
 source "${BASH_SOURCE[0]%/*}"/lib.sh
 
+# Ensure required environment variables are set
+if [ -z "${KEYCLOAK_SERVER_URL:-}" ]; then
+    echo "Error: KEYCLOAK_SERVER_URL is not set"
+    exit 1
+fi
 
+if [ -z "${KEYCLOAK_CLIENT_NAME:-}" ]; then
+    echo "Error: KEYCLOAK_CLIENT_NAME is not set"
+    exit 1
+fi
+
+if [ -z "${CLIENT_SECRET:-}" ]; then
+    echo "Error: CLIENT_SECRET is not set"
+    exit 1
+fi
+
+
+# Initialize Elasticsearch setup
 # --------------------------------------------------------
 # Users declarations
 
@@ -13,20 +30,11 @@ declare -A users_passwords
 users_passwords=(
 	[logstash_internal]="${LOGSTASH_INTERNAL_PASSWORD:-}"
 	[kibana_system]="${KIBANA_SYSTEM_PASSWORD:-}"
-	[metricbeat_internal]="${METRICBEAT_INTERNAL_PASSWORD:-}"
-	[filebeat_internal]="${FILEBEAT_INTERNAL_PASSWORD:-}"
-	[heartbeat_internal]="${HEARTBEAT_INTERNAL_PASSWORD:-}"
-	[monitoring_internal]="${MONITORING_INTERNAL_PASSWORD:-}"
-	[beats_system]="${BEATS_SYSTEM_PASSWORD=:-}"
 )
 
 declare -A users_roles
 users_roles=(
 	[logstash_internal]='logstash_writer'
-	[metricbeat_internal]='metricbeat_writer'
-	[filebeat_internal]='filebeat_writer'
-	[heartbeat_internal]='heartbeat_writer'
-	[monitoring_internal]='remote_monitoring_collector'
 )
 
 # --------------------------------------------------------
@@ -35,9 +43,6 @@ users_roles=(
 declare -A roles_files
 roles_files=(
 	[logstash_writer]='logstash_writer.json'
-	[metricbeat_writer]='metricbeat_writer.json'
-	[filebeat_writer]='filebeat_writer.json'
-	[heartbeat_writer]='heartbeat_writer.json'
 )
 
 # --------------------------------------------------------
@@ -69,6 +74,13 @@ fi
 
 sublog 'Elasticsearch is running'
 
+log 'Setting OIDC client secret in the Elasticsearch keystore'
+
+keystore_cmd="$HOME/bin/elasticsearch-keystore"
+echo "$CLIENT_SECRET" | "$keystore_cmd" add xpack.security.authc.realms.oidc.stroke.rp.client_secret -f
+sublog 'Client secret for was succesfully set into the Elasticsearch keystore'
+
+
 log 'Waiting for initialization of built-in users'
 
 wait_for_builtin_users || exit_code=$?
@@ -90,7 +102,7 @@ for role in "${!roles_files[@]}"; do
 		continue
 	fi
 
-	sublog 'Creating/updating'
+	sublog "Creating/updating ${body_file}" 
 	ensure_role "$role" "$(<"${body_file}")"
 done
 
@@ -114,6 +126,11 @@ for user in "${!users_passwords[@]}"; do
 		fi
 
 		sublog 'User does not exist, creating'
+		log "Assigning role '${users_roles[$user]}'" 
 		create_user "$user" "${users_passwords[$user]}" "${users_roles[$user]}"
 	fi
 done
+
+log 'Setting OIDC client configuration into elasticsearch.yml'
+./update_config.sh
+sublog 'Configuration was succesfull.'

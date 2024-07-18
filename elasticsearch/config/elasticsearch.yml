@@ -10,3 +10,26 @@ network.host: 0.0.0.0
 #
 xpack.license.self_generated.type: trial
 xpack.security.enabled: true
+
+node.store.allow_mmap: false
+
+xpack.security.authc.token.enabled: true
+discovery.type: single-node
+node.name: elasticsearch
+
+logger.org.elasticsearch.xpack.security.authc.oidc: TRACE
+
+xpack.security.authc.realms.oidc.stroke:
+  order: 2
+  rp.client_id: "michal"
+  rp.response_type: code
+  rp.redirect_uri: "https://localhost:5601/api/security/oidc/callback"
+  op.issuer: "https://auth.dev.qualityregistry.org/realms/stroke"
+  op.authorization_endpoint: "https://auth.dev.qualityregistry.org/realms/stroke/protocol/openid-connect/auth"
+  op.token_endpoint: "https://auth.dev.qualityregistry.org/realms/stroke/protocol/openid-connect/token"
+  op.jwkset_path: "https://auth.dev.qualityregistry.org/realms/stroke/protocol/openid-connect/certs"
+  op.userinfo_endpoint: "https://auth.dev.qualityregistry.org/realms/stroke/protocol/openid-connect/userinfo"
+  op.endsession_endpoint: "https://auth.dev.qualityregistry.org/realms/stroke/protocol/openid-connect/logout"
+  rp.post_logout_redirect_uri: "https://localhost:5601/logged_out"
+  claims.principal: name
+  ssl.verification_mode: none

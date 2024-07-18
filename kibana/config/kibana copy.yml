@@ -47,11 +47,14 @@ logging:
       level: debug
 
 xpack.security.authc.providers:
-  oidc.stroke:
+  - type: oidc
+    name: stroke
     order: 0
     realm: stroke
     description: "Keycloak"
-  basic.basic:
+    logout_redirect_uri: "https://localhost:5601/logged_out"
+  - type: basic
+    name: basic
     order: 1
 
 elasticsearch.ssl.verificationMode: certificate
